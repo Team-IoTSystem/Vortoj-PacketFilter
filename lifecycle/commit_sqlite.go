@@ -56,14 +56,15 @@ func getDBInstance(dbtype string) (*dbr.Connection, error) {
 	var err error
 	if dbinstance == nil {
 		if !fileExists(LOCALPATH) { //LOCALPATHに指定されたファイルチェック
-			fmt.Println("create *.db file")
+			fmt.Println("create " + LOCALPATH + " file")
 			// os.Create(LOCALPATH)
 			d, e := sql.Open("sqlite3", LOCALPATH)
 			if e != nil {
 				panic(e)
 			}
 			createtabel := `CREATE TABLE ` + TABELNAME + ` (`
-			createtabel += `"id" INTEGER PRIMARY KEY AUTOINCREMENT, "deviceid" TEXT,`
+			createtabel += `"id" INTEGER PRIMARY KEY AUTOINCREMENT,`
+			createtabel += ` "deviceid" TEXT,`
 			createtabel += ` "src_mac" TEXT,`
 			createtabel += ` "dst_mac" TEXT,`
 			createtabel += ` "src_ip" TEXT,`
@@ -103,6 +104,7 @@ func InsertPacketData(p *TPacket) bool {
 	sess := conn.NewSession(nil)
 
 	stmt := sess.InsertInto("packet").Columns(
+		"deviceid",
 		"src_mac",
 		"dst_mac",
 		"src_ip",
