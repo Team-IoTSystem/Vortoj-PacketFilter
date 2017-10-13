@@ -12,7 +12,7 @@ import (
 )
 
 const (
-	LOCALPATH string = "./PacketVortoj.db"
+	LOCALPATH string = "/tmp/PacketVortoj.db"
 	TABELNAME string = "packet"
 )
 
