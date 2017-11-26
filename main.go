@@ -29,7 +29,7 @@ var (
 	tcpLayer layers.TCP
 )
 
-//const SOCK_ADDRESS = "/tmp/test.sock"
+const SOCK_ADDRESS = "/tmp/Vortoj-Packet.sock"
 
 func main() {
 	// Open device pcap
@@ -41,20 +41,6 @@ func main() {
 	log.SetFlags(log.Lshortfile)
 	log.Println("Starting echo server")
 
-	//unix domain socket----
-	//create tmp filename
-	// tempdir, err := ioutil.TempDir("", "PacketFillter")
-	// if err != nil {
-	// 	log.Printf("error: %v\n", err)
-	// 	panic(err)
-	// }
-	// pid := strconv.Itoa(os.Getpid())
-	// SOCK_ADDRESS := tempdir + "/server" + pid
-	// if err := os.Chmod(tempdir, 0700); err != nil {
-	// 	log.Printf("error: %v\n", err)
-	// 	panic(err)
-	// }
-	SOCK_ADDRESS := "/tmp/example.sock"
 	//unix domain socket is Listen
 	listener, err := net.Listen("unix", SOCK_ADDRESS)
 	if err != nil {
@@ -113,12 +99,14 @@ func main() {
 						DataChank: applicationLayer.Payload(),
 					}
 					log.Println("getpacket")
-					//DomainSocket
-					ch_packet <- struct_packetdata
+					go func(c chan lifecycle.TPacket, data lifecycle.TPacket) {
+						//DomainSocket
+						c <- data
+					}(ch_packet, struct_packetdata)
 
 					//InsertDB
 					//DBはapplicationdataがある程度ある場合のみ
-					if 10 < len(applicationLayer.Payload()) {
+					if 100 < len(applicationLayer.Payload()) {
 						lifecycle.InsertPacketData(&struct_packetdata)
 					}
 				}
