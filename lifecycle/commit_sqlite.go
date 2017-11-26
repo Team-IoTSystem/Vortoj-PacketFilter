@@ -2,9 +2,8 @@ package lifecycle
 
 import (
 	"database/sql"
-	"fmt"
+	"log"
 	"os"
-	"time"
 
 	_ "github.com/mattn/go-sqlite3"
 
@@ -17,20 +16,20 @@ const (
 )
 
 type Packet struct {
-	DeviceID        int64
-	SrcMAC          string
-	DstMAC          string
-	SrcIP           string
-	DstIP           string
-	SrcPort         string
-	DstPort         string
-	Sequence        int64
-	SYN             bool
-	ACK             bool
-	protocol        string
-	Length          int64
-	PacketTimeStanp time.Time
-	DataChank       string
+	ID        int16
+	DeviceID  string
+	SrcMAC    string
+	DstMAC    string
+	SrcIP     string
+	DstIP     string
+	SrcPort   string
+	DstPort   string
+	SYN       bool
+	ACK       bool
+	Sequence  int64
+	Protocol  string
+	Length    int64
+	DataChank []byte
 }
 
 type TPacket struct {
@@ -56,7 +55,7 @@ func getDBInstance(dbtype string) (*dbr.Connection, error) {
 	var err error
 	if dbinstance == nil {
 		if !fileExists(LOCALPATH) { //LOCALPATHに指定されたファイルチェック
-			fmt.Println("create " + LOCALPATH + " file")
+			log.Println("create " + LOCALPATH + " file")
 			// os.Create(LOCALPATH)
 			d, e := sql.Open("sqlite3", LOCALPATH)
 			if e != nil {
@@ -80,11 +79,11 @@ func getDBInstance(dbtype string) (*dbr.Connection, error) {
 			createtabel += `)`
 			_, e = d.Exec(createtabel)
 			if e != nil {
-				fmt.Println(e)
+				log.Println(e)
 				panic(e)
 			}
 			d.Close()
-			fmt.Println("created" + LOCALPATH)
+			log.Println("created" + LOCALPATH)
 		}
 		dbinstance, err = dbr.Open(dbtype, LOCALPATH, nil)
 	}
@@ -120,12 +119,12 @@ func InsertPacketData(p *TPacket) bool {
 
 	result, err := stmt.Exec()
 	if err != nil {
-		fmt.Println(err)
+		log.Println(err)
 		return false
 	} else {
 		//result.RowsAffected()
 		count, _ := result.RowsAffected()
-		fmt.Println(count)
+		log.Println(count)
 		return true
 	}
 }
