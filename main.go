@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"log"
 	"os"
@@ -13,26 +14,24 @@ import (
 	"github.com/google/gopacket/pcap"
 )
 
-const (
-	devicefind_flag bool = true
-)
-
 var (
-	device       string = "en0" //ifconfigやip aとかで調べて使ってください
-	snapshot_len int32  = 1024
-	promiscuous  bool   = false
-	err          error
-	timeout      time.Duration = 30 * time.Second
-	handle       *pcap.Handle
+	device      = flag.String("i", "en0", "using device to network interface name") //ifconfigやip aとかで調べて使ってください
+	snapshotLen = flag.Int64("len", 1024, "date snapshot size")
+	promiscuous = flag.Bool("promise", false, "is promiscuous mode")
+	err         error
+	timeout     = time.Duration(*(flag.Int("t", 30, "promisc"))) * time.Second
+	handle      *pcap.Handle
 	// Will reuse these for each packet
-	ethLayer layers.Ethernet
-	ipLayer  layers.IPv4
-	tcpLayer layers.TCP
+	ethLayer       layers.Ethernet
+	ipLayer        layers.IPv4
+	tcpLayer       layers.TCP
+	devicefindFlag = flag.Bool("find", false, "device network interface to find")
 )
 
 func networkInterfeceFind() {
 	// Find all devices
 	devices, err := pcap.FindAllDevs()
+
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -49,16 +48,18 @@ func networkInterfeceFind() {
 		}
 	}
 }
+
 func main() {
+	flag.Parse()
 	log.SetFlags(log.Lshortfile)
 
-	if devicefind_flag { //デバイスを探すだけ
+	if *devicefindFlag { //デバイスを探すだけなのでこれをしたら落ちる仕様
 		networkInterfeceFind()
 		os.Exit(1)
 	}
 
 	// Open device pcap
-	handle, err = pcap.OpenLive(device, snapshot_len, promiscuous, timeout)
+	handle, err = pcap.OpenLive(*device, int32(*snapshotLen), *promiscuous, timeout)
 	if err != nil {
 		log.Fatal(err)
 	}
