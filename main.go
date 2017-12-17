@@ -26,6 +26,7 @@ var (
 )
 
 func main() {
+	log.SetFlags(log.Lshortfile)
 	// Open device pcap
 	handle, err = pcap.OpenLive(device, snapshot_len, promiscuous, timeout)
 	if err != nil {
