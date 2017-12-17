@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"log"
+	"os"
 	"time"
 
 	"./lifecycle"
@@ -10,6 +11,10 @@ import (
 	"github.com/google/gopacket"
 	"github.com/google/gopacket/layers"
 	"github.com/google/gopacket/pcap"
+)
+
+const (
+	devicefind_flag bool = true
 )
 
 var (
@@ -25,8 +30,33 @@ var (
 	tcpLayer layers.TCP
 )
 
+func networkInterfeceFind() {
+	// Find all devices
+	devices, err := pcap.FindAllDevs()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// Print device information
+	log.Println("Devices found:")
+	for _, device := range devices {
+		fmt.Println("\nName: ", device.Name)
+		fmt.Println("Description: ", device.Description)
+		fmt.Println("Devices addresses: ", device.Description)
+		for _, address := range device.Addresses {
+			fmt.Println("- IP address: ", address.IP)
+			fmt.Println("- Subnet mask: ", address.Netmask)
+		}
+	}
+}
 func main() {
 	log.SetFlags(log.Lshortfile)
+
+	if devicefind_flag { //デバイスを探すだけ
+		networkInterfeceFind()
+		os.Exit(1)
+	}
+
 	// Open device pcap
 	handle, err = pcap.OpenLive(device, snapshot_len, promiscuous, timeout)
 	if err != nil {
