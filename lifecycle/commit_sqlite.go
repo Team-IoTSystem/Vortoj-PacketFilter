@@ -2,35 +2,46 @@ package lifecycle
 
 import (
 	"database/sql"
-	"fmt"
-	"os"
-	"time"
+	"database/sql/driver"
 
-	_ "github.com/mattn/go-sqlite3"
+	"fmt"
+	"log"
+	"os"
+
+	"github.com/go-sql-driver/mysql"
 
 	"github.com/gocraft/dbr"
 )
 
 const (
-	LOCALPATH string = "/tmp/PacketVortoj.db"
-	TABELNAME string = "packet"
+	PATH          string = "root:root@tcp(127.0.0.1:3306)/"
+	DATABASE_NAME string = "vortojpacket"
+	TABEL_NAME    string = "packet"
+	DBTYPE        string = "mysql"
 )
 
-type Packet struct {
-	DeviceID        int64
-	SrcMAC          string
-	DstMAC          string
-	SrcIP           string
-	DstIP           string
-	SrcPort         string
-	DstPort         string
-	Sequence        int64
-	SYN             bool
-	ACK             bool
-	protocol        string
-	Length          int64
-	PacketTimeStanp time.Time
-	DataChank       string
+var dbinstance *dbr.Connection
+
+var createTableStatements = []string{
+	`CREATE DATABASE IF NOT EXISTS ` + DATABASE_NAME + ` CHARACTER SET 'utf8' DEFAULT COLLATE 'utf8_general_ci';`,
+	`USE ` + DATABASE_NAME + `;`,
+	`CREATE TABLE IF NOT EXISTS ` + TABEL_NAME + ` (
+		id INT UNSIGNED AUTO_INCREMENT NOT NULL,
+		deviceid VARCHAR(255), 
+		src_mac VARCHAR(255),
+		dst_mac VARCHAR(255),
+		src_ip VARCHAR(255),
+		dst_ip VARCHAR(255),
+		src_port VARCHAR(255), 
+		dst_port VARCHAR(255), 
+		syn INT, 
+		ack INT, 
+		sequence BIGINT UNSIGNED,
+		protocol VARCHAR(255), 
+		length INT, 
+		datachank BLOB,
+		PRIMARY KEY (id)
+	);`,
 }
 
 type TPacket struct {
@@ -50,54 +61,73 @@ type TPacket struct {
 	DataChank []byte `db:"datachank"`
 }
 
-var dbinstance *dbr.Connection
+func ensureTablesExist() error {
+	conn, err := sql.Open(DBTYPE, PATH)
+	if err != nil {
+		return fmt.Errorf("mysql: could not get a connection: %v", err)
+	}
+	defer conn.Close()
 
-func getDBInstance(dbtype string) (*dbr.Connection, error) {
-	var err error
-	if dbinstance == nil {
-		if !fileExists(LOCALPATH) { //LOCALPATHに指定されたファイルチェック
-			fmt.Println("create " + LOCALPATH + " file")
-			// os.Create(LOCALPATH)
-			d, e := sql.Open("sqlite3", LOCALPATH)
-			if e != nil {
-				panic(e)
-			}
-			createtabel := `CREATE TABLE ` + TABELNAME + ` (`
-			createtabel += `"id" INTEGER PRIMARY KEY AUTOINCREMENT,`
-			createtabel += ` "deviceid" TEXT,`
-			createtabel += ` "src_mac" TEXT,`
-			createtabel += ` "dst_mac" TEXT,`
-			createtabel += ` "src_ip" TEXT,`
-			createtabel += ` "dst_ip" TEXT,`
-			createtabel += ` "src_port" TEXT,`
-			createtabel += ` "dst_port" TEXT,`
-			createtabel += ` "syn" INTEGER,`
-			createtabel += ` "ack" INTEGER,`
-			createtabel += ` "sequence" INTEGER,`
-			createtabel += ` "protocol" TEXT,`
-			createtabel += ` "length" INTEGER,`
-			createtabel += ` "datachank" BLOB`
-			createtabel += `)`
-			_, e = d.Exec(createtabel)
-			if e != nil {
-				fmt.Println(e)
-				panic(e)
-			}
-			d.Close()
-			fmt.Println("created" + LOCALPATH)
+	// Check the connection.
+	if conn.Ping() == driver.ErrBadConn {
+		return fmt.Errorf("mysql: could not connect to the database. " +
+			"could be bad address, or this address is not whitelisted for access.")
+	}
+
+	if _, err := conn.Exec("USE " + DATABASE_NAME); err != nil {
+		// MySQL error 1049 is "database does not exist"
+		if mErr, ok := err.(*mysql.MySQLError); ok && mErr.Number == 1049 {
+			return createTable(conn)
 		}
-		dbinstance, err = dbr.Open(dbtype, LOCALPATH, nil)
+	}
+
+	return nil
+}
+
+func createTable(conn *sql.DB) error {
+	for _, stmt := range createTableStatements {
+		log.Println(stmt)
+		_, err := conn.Exec(stmt)
+		if err != nil {
+			log.Println(err)
+			return err
+		}
+	}
+	return nil
+}
+
+func getDBInstance() (*dbr.Connection, error) {
+	var err error = nil
+	if dbinstance == nil {
+		log.Println("create " + PATH + " DB")
+		if err := ensureTablesExist(); err != nil {
+			return nil, err
+		}
+
+		conn, err := sql.Open(DBTYPE, PATH+DATABASE_NAME)
+		if err != nil {
+			return nil, fmt.Errorf("mysql: could not get a connection: %v", err)
+		}
+		if err := conn.Ping(); err != nil {
+			conn.Close()
+			return nil, fmt.Errorf("mysql: could not establish a good connection: %v", err)
+		}
+
+		//createAndOpen()
+		dbinstance, err = dbr.Open(DBTYPE, PATH+DATABASE_NAME, nil)
 	}
 	return dbinstance, err
 }
+
 func fileExists(filename string) bool {
 	_, err := os.Stat(filename)
 	return err == nil
 }
+
 func InsertPacketData(p *TPacket) bool {
 	insertpacket := p
 
-	conn, err := getDBInstance("sqlite3")
+	conn, err := getDBInstance()
 	if err != nil {
 		os.Exit(-1)
 	}
@@ -129,25 +159,3 @@ func InsertPacketData(p *TPacket) bool {
 		return true
 	}
 }
-
-// type TPacketDataDao struct{
-// 	conn dbr.Connection
-// 	tabel string
-// }
-
-// func TPacketDataSQLite() TPacketDataDao{
-// 	return TPacketDataSQLite{
-// 		conn:ConnMaster
-// 		tabel:`t_primary_id`
-// 	}
-// }
-
-// type PacketDataSQLite struct{}
-
-// func NewPacketDataSQLite() PacketDataSQLite{
-// 	return PacketDataSQLite{}
-// }
-
-// func (packetdata PacketDataSQLite) packetDataInsert(pcap Packet)(){
-// 	var packet packet
-// }
